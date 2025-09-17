@@ -1268,7 +1268,7 @@ static void testWaveCrestAntialiasingHelper(bubblemon_t *testMe, float height,
 #endif
 }
 
-static void testWaveCrestAntialiasing() {
+static void testWaveCrestAntialiasing(void) {
   bubblemon_t *testMe = bubblemon_init();
 
   bubblemon_setSize(testMe, 3, 5);
@@ -1287,4 +1287,4 @@ static void testWaveCrestAntialiasing() {
   bubblemon_done(testMe);
 }
 
-void bubblemon_selftest() { testWaveCrestAntialiasing(); }
+void bubblemon_selftest(void) { testWaveCrestAntialiasing(); }

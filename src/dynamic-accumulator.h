@@ -23,6 +23,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 /* See dynamic_accumulator_t below.
  */

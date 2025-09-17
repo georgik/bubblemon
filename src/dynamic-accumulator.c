@@ -170,7 +170,7 @@ void dynamic_accumulator_destroy(dynamic_accumulator_t *dynamic_accumulator) {
   free(dynamic_accumulator);
 }
 
-static void testCreateDestroy() {
+static void testCreateDestroy(void) {
   dynamic_accumulator_t *testMe = dynamic_accumulator_create();
   assert(testMe != NULL);
 
@@ -181,13 +181,13 @@ static void testCreateDestroy() {
   dynamic_accumulator_destroy(testMe);
 }
 
-static void testNoData() {
+static void testNoData(void) {
   dynamic_accumulator_t *testMe = dynamic_accumulator_create();
   assert(dynamic_accumulator_getLoadPercentage(testMe) == 0);
   dynamic_accumulator_destroy(testMe);
 }
 
-static void testSingleDevice() {
+static void testSingleDevice(void) {
   dynamic_accumulator_t *testMe = dynamic_accumulator_create();
 
   setTimeMs(5100);
@@ -218,7 +218,7 @@ static void testSingleDevice() {
   dynamic_accumulator_destroy(testMe);
 }
 
-static void testGcFirstDeviceOfTwo() {
+static void testGcFirstDeviceOfTwo(void) {
   dynamic_accumulator_t *testMe = dynamic_accumulator_create();
 
   // Add two devices
@@ -247,7 +247,7 @@ static void testGcFirstDeviceOfTwo() {
   dynamic_accumulator_destroy(testMe);
 }
 
-static void testGcSecondDeviceOfTwo() {
+static void testGcSecondDeviceOfTwo(void) {
   dynamic_accumulator_t *testMe = dynamic_accumulator_create();
 
   // Add two devices
