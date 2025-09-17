@@ -1,0 +1,206 @@
+name: Build macOS Apps
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Show system information
+      run: |
+        echo "macOS version: $(sw_vers -productVersion)"
+        echo "Xcode version: $(xcodebuild -version)"
+        echo "Architecture: $(uname -m)"
+        echo "Available SDKs: $(xcodebuild -showsdks | grep macosx)"
+        
+    - name: Create include directory
+      run: |
+        echo "Creating required include directory..."
+        mkdir -p build/include
+        
+    - name: Build Bubblemon Menu Bar (ARM64)
+      run: |
+        echo "Building Bubblemon Menu Bar for macOS ARM64..."
+        xcodebuild build \
+          -project osx/bubblemon.xcodeproj \
+          -configuration Release \
+          -target "Bubblemon Menu Bar" \
+          -arch arm64 \
+          CONFIGURATION_BUILD_DIR="$(pwd)/build" \
+          ONLY_ACTIVE_ARCH=YES \
+          VALID_ARCHS=arm64 \
+          ARCHS=arm64 \
+          GCC_C_LANGUAGE_STANDARD=gnu99 \
+          CLANG_WARN_DECLARATION_AFTER_STATEMENT=NO \
+          GCC_TREAT_WARNINGS_AS_ERRORS=NO
+          
+    - name: Build Bubblemon Dock (ARM64)
+      run: |
+        echo "Building Bubblemon Dock for macOS ARM64..."
+        xcodebuild build \
+          -project osx/bubblemon.xcodeproj \
+          -configuration Release \
+          -target "Bubblemon" \
+          -arch arm64 \
+          CONFIGURATION_BUILD_DIR="$(pwd)/build" \
+          ONLY_ACTIVE_ARCH=YES \
+          VALID_ARCHS=arm64 \
+          ARCHS=arm64 \
+          GCC_C_LANGUAGE_STANDARD=gnu99 \
+          CLANG_WARN_DECLARATION_AFTER_STATEMENT=NO \
+          GCC_TREAT_WARNINGS_AS_ERRORS=NO
+          
+          
+    - name: Verify builds
+      run: |
+        echo "Verifying built applications..."
+        
+        # Check Menu Bar app
+        if [ -f "build/Bubblemon Menu Bar.app/Contents/MacOS/Bubblemon Menu Bar" ]; then
+          echo "✅ Bubblemon Menu Bar built successfully"
+          file "build/Bubblemon Menu Bar.app/Contents/MacOS/Bubblemon Menu Bar"
+          ls -la "build/Bubblemon Menu Bar.app/Contents/MacOS/Bubblemon Menu Bar"
+        else
+          echo "❌ Bubblemon Menu Bar build failed"
+          exit 1
+        fi
+        
+        # Check Dock app
+        if [ -f "build/Bubblemon.app/Contents/MacOS/Bubblemon" ]; then
+          echo "✅ Bubblemon Dock built successfully"
+          file "build/Bubblemon.app/Contents/MacOS/Bubblemon"
+          ls -la "build/Bubblemon.app/Contents/MacOS/Bubblemon"
+        else
+          echo "⚠️ Bubblemon Dock build failed (continuing)"
+        fi
+        
+        
+        echo "Build verification completed"
+        
+    - name: Create release archive
+      run: |
+        echo "Creating release archive..."
+        cd build
+        
+        # Create a distribution directory
+        mkdir -p Bubblemon-macOS-Release
+        
+        # Copy built applications
+        if [ -d "Bubblemon Menu Bar.app" ]; then
+          cp -R "Bubblemon Menu Bar.app" "Bubblemon-macOS-Release/"
+        fi
+        
+        if [ -d "Bubblemon.app" ]; then
+          cp -R "Bubblemon.app" "Bubblemon-macOS-Release/"
+        fi
+        
+        
+        # Copy documentation
+        cp ../README.md "Bubblemon-macOS-Release/" 2>/dev/null || echo "README.md not found"
+        cp ../COPYING "Bubblemon-macOS-Release/" 2>/dev/null || echo "COPYING not found"
+        
+        # Create archive
+        tar -czf Bubblemon-macOS-ARM64.tar.gz Bubblemon-macOS-Release/
+        
+        echo "Archive created: Bubblemon-macOS-ARM64.tar.gz"
+        ls -la Bubblemon-macOS-ARM64.tar.gz
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Bubblemon-macOS-ARM64
+        path: build/Bubblemon-macOS-ARM64.tar.gz
+        retention-days: 30
+        
+    - name: Upload individual apps as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Bubblemon-Apps-Individual
+        path: |
+          build/Bubblemon Menu Bar.app/
+          build/Bubblemon.app/
+        retention-days: 30
+        if-no-files-found: ignore
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: build-macos
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: Bubblemon-macOS-ARM64
+        path: ./artifacts
+        
+    - name: Get version info
+      id: version
+      run: |
+        # Extract version from git tag
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "RELEASE_TAG=$VERSION" >> $GITHUB_OUTPUT
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        # Check if it's a prerelease (contains alpha, beta, rc, etc.)
+        if [[ $VERSION =~ (alpha|beta|rc|dev) ]]; then
+          echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+        else
+          echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.RELEASE_TAG }}
+        name: "Bubblemon macOS ${{ steps.version.outputs.VERSION }}"
+        draft: false
+        prerelease: ${{ steps.version.outputs.IS_PRERELEASE }}
+        files: ./artifacts/Bubblemon-macOS-ARM64.tar.gz
+        body: |
+          # Bubblemon for macOS
+          
+          Automated build of Bubblemon system monitor applications for macOS.
+          
+          ## What's included:
+          - **Bubblemon Menu Bar** - System monitor in your menu bar with animated bubbles
+          - **Bubblemon Dock** - System monitor in your dock (if available)
+          
+          ## System Requirements:
+          - macOS 10.13 or later
+          - Apple Silicon (ARM64) native build
+          
+          ## Installation:
+          1. Download `Bubblemon-macOS-ARM64.tar.gz`
+          2. Extract the archive
+          3. Copy the desired app(s) to your Applications folder
+          4. Launch the app - it will show animated bubbles representing system activity
+          
+          ## Features:
+          - Real-time CPU usage monitoring with animated bubbles
+          - Memory usage visualization
+          - Native Apple Silicon performance
+          - Lightweight and efficient
+          
+          ## Build Information:
+          - **Commit**: ${{ github.sha }}
+          - **Date**: ${{ github.event.head_commit.timestamp }}
+          - **Architecture**: ARM64 (Apple Silicon native)
+          - **C Standard**: GNU99
+          
+          ---
+          *This is an automated release generated from the latest commit.*
